@@ -1,4 +1,5 @@
-import yfinance as yf
+import depot as dt
+import yfinance as yf #Index(['Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits'], dtype='str')
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -11,14 +12,40 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import warnings
 warnings.filterwarnings('ignore')
+isProd = False
+show_stocks = True
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title="AI Stock Market Dashboard",
+    page_title="Depot Dashboard",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed" #expanded"
 )
+stock_dict = {
+            'ASML':'ASME.DE', 'Heidelberg Mat':'HEI.DE', 'Ver Bioenergie':'VBK.DE',
+            'Orkla': 'OKL.SG', 'Infineon':'IFX.DE', 'Sanofi':'SAN.PA',
+            'Umicore':'NVJP.DE',
+            'Hello Fresh': 'HFG.F', 'Google': 'GOOGL',
+            'Vestas':'VWSB.DE', 'Nordex': 'NDX1.DE', 'Siemens Energy':'ENR.F',
+            'Amazon': 'AMZN', 'BYD China': 'BYDDF', 'Tesla': 'TSLA',
+            'NVIDIA': 'NVDA', 'Meta': 'META', 'Netflix': 'NFLX',
+            'AMD': 'AMD', 'Intel': 'INTC', 'Apple': 'AAPL',
+            'Ottobock': 'OBCK.DE', 'USA 2028 3.625%':'US91282CHE49.SG'
+            }
+stocks={} # inverse to search for stock symbol
+for key, value in stock_dict.items():
+    stocks[value]=key
+
+depot = dt.Depot("depot.csv", "order.csv", stock_dict)
+currency = depot.currency
+
+def show(stock):
+    st.metric(
+        label=f"📈 {stock.name}",
+        value=f"{stock.changeRel*100:+.1f}%",
+        delta=f"{stock.changeAbs:.0f} {currency}"
+        )
 
 class StockAnalyzer:
     def __init__(self):
@@ -30,11 +57,16 @@ class StockAnalyzer:
         try:
             stock = yf.Ticker(symbol)
             data = stock.history(period=period)
-            info = stock.info
-            return data, info
         except Exception as e:
             st.error(f"Error fetching data for {symbol}: {str(e)}")
-            return None, None
+            data = None
+        try:
+            info = stock.info
+            esg  = stock.sustainability #Environment, Social and Governance(ESG)
+            return data, info
+        except Exception as e:
+            st.error(f"Error fetching {symbol} sustainability: {str(e)}")
+            return data, None
     
     def calculate_technical_indicators(self, data):
         """Calculate comprehensive technical indicators using pure pandas/numpy"""
@@ -121,7 +153,6 @@ class StockAnalyzer:
         # Volatility features
         df['Price_volatility_10d'] = df['Returns'].rolling(10).std()
         df['Price_volatility_20d'] = df['Returns'].rolling(20).std()
-        
         return df
     
     def train_prediction_model(self, data):
@@ -143,7 +174,7 @@ class StockAnalyzer:
         if len(feature_cols) < 5:
             return None
         
-        X = df[feature_cols].fillna(method='ffill').fillna(method='bfill')
+        X = df[feature_cols].ffill(limit_area='inside')
         y = df['Close'].shift(-1)  # Predict next day's close
         
         # Remove last row (no target) and any remaining NaN
@@ -185,14 +216,13 @@ class StockAnalyzer:
         
         last_features_scaled = self.scaler.transform(model_info['last_features'])
         prediction = self.model.predict(last_features_scaled)[0]
-        
         return prediction
     
     def generate_market_analysis(self, data, info, symbol):
         """Generate AI-powered market analysis"""
         latest = data.iloc[-1]
         prev = data.iloc[-2]
-        
+        name = f" ({stocks[symbol]})" if symbol in stocks else ""
         # Price movement
         price_change = latest['Close'] - prev['Close']
         price_change_pct = (price_change / prev['Close']) * 100
@@ -217,17 +247,17 @@ class StockAnalyzer:
         
         # Price trend
         if price_change_pct > 3:
-            analysis.append(f"🚀 {symbol} shows exceptional bullish momentum with a {price_change_pct:.2f}% surge")
+            analysis.append(f"🚀 {symbol}{name} shows exceptional bullish momentum with a {price_change_pct:.2f}% surge")
         elif price_change_pct > 1:
-            analysis.append(f"🟢 {symbol} demonstrates strong upward movement (+{price_change_pct:.2f}%)")
+            analysis.append(f"🟢 {symbol}{name} demonstrates strong upward movement (+{price_change_pct:.2f}%)")
         elif price_change_pct > 0:
-            analysis.append(f"🟡 {symbol} shows modest gains (+{price_change_pct:.2f}%)")
+            analysis.append(f"🟡 {symbol}{name} shows modest gains (+{price_change_pct:.2f}%)")
         elif price_change_pct > -1:
-            analysis.append(f"🟡 {symbol} experiences slight decline ({price_change_pct:.2f}%)")
+            analysis.append(f"🟡 {symbol}{name} experiences slight decline ({price_change_pct:.2f}%)")
         elif price_change_pct > -3:
-            analysis.append(f"🔴 {symbol} shows moderate bearish pressure ({price_change_pct:.2f}%)")
+            analysis.append(f"🔴 {symbol}{name} shows moderate bearish pressure ({price_change_pct:.2f}%)")
         else:
-            analysis.append(f"🔻 {symbol} faces significant selling pressure ({price_change_pct:.2f}%)")
+            analysis.append(f"🔻 {symbol}{name} faces significant selling pressure ({price_change_pct:.2f}%)")
         
         # RSI analysis
         if rsi > 80:
@@ -405,7 +435,7 @@ def create_advanced_chart(data, symbol):
         )
     
     fig.update_layout(
-        title=f'{symbol} - Complete Technical Analysis Dashboard',
+        title=f'{symbol} - Technical Analysis Dashboard',
         xaxis_rangeslider_visible=False,
         height=900,
         showlegend=True,
@@ -463,52 +493,59 @@ def create_performance_metrics(data, symbol):
         height=400
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 # Streamlit App
-def main():
-    st.title("🚀 Professional AI Stock Market Dashboard")
-    st.markdown("*Advanced technical analysis with machine learning predictions*")
-    
+def main():  
+    depot_title = "💰My Depot"
+    default_title = "Dashboard" 
     # Sidebar
     st.sidebar.header("📊 Dashboard Controls")
     st.sidebar.markdown("---")
     
     # Stock selection with popular choices
-    popular_stocks = {
-        'Apple': 'AAPL', 'Microsoft': 'MSFT', 'Google': 'GOOGL', 
-        'Amazon': 'AMZN', 'Tesla': 'TSLA', 'NVIDIA': 'NVDA',
-        'Meta': 'META', 'Netflix': 'NFLX', 'AMD': 'AMD', 'Intel': 'INTC'
-    }
-    
+    popular_stocks = stock_dict
     stock_choice = st.sidebar.selectbox(
         "🏢 Select Stock:",
         options=list(popular_stocks.keys()) + ['Custom'],
-        index=0
+        index=4
     )
     
     if stock_choice == 'Custom':
-        symbol = st.sidebar.text_input("Enter Stock Symbol:", value="AAPL", max_chars=10).upper()
+        symbol = st.sidebar.text_input("Enter Stock Symbol:", value="VWSYF", ma1x_chars=10).upper()
     else:
         symbol = popular_stocks[stock_choice]
     
     # Time period
     period = st.sidebar.selectbox(
         "📅 Analysis Period:",
-        options=['1mo', '3mo', '6mo', '1y', '2y', '5y'],
-        index=3
+        options=['8h', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y'],
+        index=5
     )
     
     st.sidebar.markdown("---")
     
+    # Change mode from depot to stock analysis
+    st.sidebar.subheader("🔧 Mode")
+    show_depot      = st.sidebar.checkbox("💰 Depot or Stock", value=True)
     # Analysis options
-    st.sidebar.subheader("🔧 Analysis Options")
-    show_prediction = st.sidebar.checkbox("🔮 ML Price Prediction", value=True)
-    show_technical = st.sidebar.checkbox("📈 Technical Charts", value=True)
-    show_performance = st.sidebar.checkbox("📊 Performance Metrics", value=True)
-    show_analysis = st.sidebar.checkbox("🧠 AI Market Analysis", value=True)
-    
+    st.sidebar.subheader("🔧 Options for stock mode")
+    show_prediction = st.sidebar.checkbox("🔮 ML Price Prediction", value=False)
+    show_technical = st.sidebar.checkbox("📈 Technical Charts", value=isProd)
+    show_performance = st.sidebar.checkbox("📊 Performance Metrics", value=False)
+    show_analysis = st.sidebar.checkbox("🧠 AI Market Analysis", value=isProd)
+    show_company = st.sidebar.checkbox("⚖ Company Info", value=False)
     st.sidebar.markdown("---")
+
+    #title of main page
+    if 'stock_choice' in locals():
+        if show_depot:
+            st.title(depot_title)
+        else:
+            st.title(stock_choice) #popular_stocks.keys[stock_choice])
+    else:
+        st.title(default_title)
+
     
     if st.sidebar.button("🔄 Refresh Data", type="primary"):
         st.cache_data.clear()
@@ -523,86 +560,159 @@ def main():
     
     if data is None or data.empty:
         st.error(f"❌ Could not fetch data for {symbol}. Please verify the symbol and try again.")
-        st.info("💡 Try popular symbols like AAPL, MSFT, GOOGL, TSLA, etc.")
+        st.info("💡 Try popular symbols like AAPL, GOOGL, etc.")
         return
     
     # Calculate technical indicators
-    with st.spinner("⚙️ Calculating technical indicators..."):
-        data = analyzer.calculate_technical_indicators(data)
+    if not show_depot:
+        with st.spinner("⚙️ Calculating technical indicators..."):
+            data = analyzer.calculate_technical_indicators(data)
     
     # Main dashboard header
     st.markdown("---")
-    
-    # Key metrics row
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    latest_price = data['Close'].iloc[-1]
-    prev_price = data['Close'].iloc[-2]
-    price_change = latest_price - prev_price
-    price_change_pct = (price_change / prev_price) * 100
-    
-    with col1:
-        st.metric(
-            label="💰 Current Price",
-            value=f"${latest_price:.2f}",
-            delta=f"{price_change:.2f} ({price_change_pct:+.2f}%)"
-        )
-    
-    with col2:
-        volume = data['Volume'].iloc[-1]
-        avg_volume = data['Volume'].rolling(20).mean().iloc[-1]
-        volume_change = ((volume - avg_volume) / avg_volume) * 100 if avg_volume > 0 else 0
-        st.metric(
-            label="📊 Volume",
-            value=f"{volume:,.0f}",
-            delta=f"{volume_change:+.1f}% vs 20d avg"
-        )
-    
-    with col3:
-        if 'RSI' in data.columns and not pd.isna(data['RSI'].iloc[-1]):
-            rsi = data['RSI'].iloc[-1]
-            rsi_status = "Overbought" if rsi > 70 else "Oversold" if rsi < 30 else "Neutral"
+    # Personal Depot
+    if show_depot:
+        h5=0
+        h15=0
+        h20=0
+        for s in depot.stocks:#st.text(f"Processing {s.name} at {now['Close'].iloc[-1]:.2f} with {now['Close'].size} datasets.")
+            s.fetch(period="1mo") # is None for wrong symbol
+            try: #fails for constant bonds without s.data
+                wd = s.data['Close'].size #workingdays differs on marketplace
+                latest =  s.data['Close'].iloc[-1]     #yesterday
+                if wd > 1: #2 datasets at least
+                    prev =  s.data['Close'].iloc[-2]       #previous day
+                    v7   =  s.data['Close'].iloc[-6]       #5 workingdays
+                    v30  =  s.data['Close'].iloc[0]        
+                else:                    
+                    prev = latest #if new day did not start
+            except Exception as e:
+                latest = s.initial #if missing data for symbol.
+                t = "Wrong stock symbol or missing data: {}"
+            h15  += s.amount *(latest - s.average(15)) # working days
+            h5   += s.amount *(latest - s.average(5)) 
+        depot.update()  # show 0.0%, if wrong stock symbol in depot.csv
+        #st.text(s.name + f": {s.changeAbs:.2f}€")
+        #st.text(depot.show() + str(len(depot.stocks))+" stocks in depot.")
+        depot.show() # only in console
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
             st.metric(
-                label="⚡ RSI (14)",
-                value=f"{rsi:.1f}",
-                delta=rsi_status
-            )
-        else:
-            st.metric(label="⚡ RSI (14)", value="N/A")
-    
-    with col4:
-        if 'SMA_20' in data.columns and not pd.isna(data['SMA_20'].iloc[-1]):
-            sma_20 = data['SMA_20'].iloc[-1]
-            sma_distance = ((latest_price - sma_20) / sma_20) * 100
+                label="💰 overall, past",
+                value=f"{depot.changeAbs/1000:.1f} k{currency}",
+                delta=f"{depot.changeRel*100:+.1f}%"
+                )
+        with col2:
             st.metric(
-                label="📈 vs SMA 20",
-                value=f"{sma_distance:+.1f}%",
-                delta="Above" if sma_distance > 0 else "Below"
-            )
-        else:
-            st.metric(label="📈 vs SMA 20", value="N/A")
+                label="💰 current depot",
+                value=f"{depot.total/1000:.0f} k{currency}",
+                delta=f"{depot.changeAbs:.0f} ({depot.changeRel*100:+.1f}%)"                 )
+        with col3:
+            st.metric(
+                label="💰 3 week average",
+                value=f"{h15/1000:.1f} k{currency}",
+                delta=f"{h15/depot.total*100:+.1f}%" #load info from class depot
+                )
+        with col4:
+            st.metric(
+                label="💰 1 week average",
+                value=f"{h5:.0f}{currency}",
+                delta=f"{h5/depot.total*100:+.1f}%" #Load info from class Depot
+                )
+
+    if show_stocks and len(depot.stocks) > 0 and show_depot:
+        col1, col2, col3, col4, col5 = st.columns(5) # only oldest stocks
+        stock = depot.stocks[0]
+        with col1:
+            show(stock)
+        if len(depot.stocks) > 1:
+            stock = depot.stocks[1]
+            with col2:
+                show(stock)
+        if len(depot.stocks) > 2:
+            stock = depot.stocks[2]
+            with col3:
+                show(stock)
+        if len(depot.stocks) > 3:
+            stock = depot.stocks[3]
+            with col4:
+                show(stock)
+        if len(depot.stocks) > 4:
+            stock = depot.stocks[4]
+            with col5:
+                show(stock)
     
-    with col5:
-        market_cap = info.get('marketCap', 0)
-        if market_cap:
-            if market_cap > 1e12:
-                cap_display = f"${market_cap/1e12:.2f}T"
-            elif market_cap > 1e9:
-                cap_display = f"${market_cap/1e9:.1f}B"
+    # Key metrics row.
+    if not show_depot:
+        col1, col2, col3, col4, col5 = st.columns(5)
+        latest_price = data['Close'].iloc[-1]
+        prev_price = data['Close'].iloc[-2]
+        price_change = latest_price - prev_price
+        price_change_pct = (price_change / prev_price) * 100
+        
+        with col1:
+            st.metric(
+                label="💰 Current Price",
+                value=f"${latest_price:.2f}",
+                delta=f"{price_change:.2f} ({price_change_pct:+.2f}%)"
+            )
+        
+        with col2:
+            volume = data['Volume'].iloc[-1]
+            avg_volume = data['Volume'].rolling(20).mean().iloc[-1]
+            volume_change = ((volume - avg_volume) / avg_volume) * 100 if avg_volume > 0 else 0
+            st.metric(
+                label="📊 Volume",
+                value=f"{volume:,.0f}",
+                delta=f"{volume_change:+.1f}% vs 20d avg"
+            )
+        
+        with col3:
+            if 'RSI' in data.columns and not pd.isna(data['RSI'].iloc[-1]):
+                rsi = data['RSI'].iloc[-1]
+                rsi_status = "Overbought" if rsi > 70 else "Oversold" if rsi < 30 else "Neutral"
+                st.metric(
+                    label="⚡ RSI (14)",
+                    value=f"{rsi:.1f}",
+                    delta=rsi_status
+                )
             else:
-                cap_display = f"${market_cap/1e6:.0f}M"
-            st.metric(label="🏢 Market Cap", value=cap_display)
-        else:
-            st.metric(label="🏢 Market Cap", value="N/A")
-    
-    st.markdown("---")
-    
+                st.metric(label="⚡ RSI (14)", value="N/A")
+        
+        with col4:
+            if 'SMA_20' in data.columns and not pd.isna(data['SMA_20'].iloc[-1]):
+                sma_20 = data['SMA_20'].iloc[-1]
+                sma_distance = ((latest_price - sma_20) / sma_20) * 100
+                st.metric(
+                    label="📈 vs 20d-average",
+                    value=f"{sma_distance:+.1f}%",
+                    delta="Above" if sma_distance > 0 else "Below"
+                )
+            else:
+                st.metric(label="📈 vs SMA 20", value="N/A")
+        
+        with col5:
+            market_cap = info.get('marketCap', 0)
+            if market_cap:
+                if market_cap > 1e12:
+                    cap_display = f"${market_cap/1e12:.2f}T"
+                elif market_cap > 1e9:
+                    cap_display = f"${market_cap/1e9:.1f}B"
+                else:
+                    cap_display = f"${market_cap/1e6:.0f}M"
+                st.metric(label="🏢 Market Cap", value=cap_display)
+            else:
+                st.metric(label="🏢 Market Cap", value="N/A")
+        
+            #st.markdown("---")#with indent the line starts at text below indicators
+
     # Advanced Chart
     if show_technical:
         st.subheader("📈 Advanced Technical Analysis")
         with st.spinner("Creating advanced charts..."):
             chart = create_advanced_chart(data, symbol)
-            st.plotly_chart(chart, use_container_width=True)
+            st.plotly_chart(chart, width="stretch")
     
     # Performance Metrics
     if show_performance:
@@ -665,7 +775,7 @@ def main():
                     template='plotly_dark'
                 )
                 fig_importance.update_layout(height=400)
-                st.plotly_chart(fig_importance, use_container_width=True)
+                st.plotly_chart(fig_importance, width="stretch")
     
     # AI Market Analysis
     if show_analysis:
@@ -686,84 +796,83 @@ def main():
             else:
                 st.info(insight)
     
-    # Additional Analysis Tabs
-    st.markdown("---")
+    # Additional Analysis Tabs 
+    if show_company:
+        st.markdown("---")
+        tab1, tab2, tab3 = st.tabs(["📋 Company Info", "📊 Raw Data", "🔧 Technical Indicators"])
     
-    tab1, tab2, tab3 = st.tabs(["📋 Company Info", "📊 Raw Data", "🔧 Technical Indicators"])
-    
-    with tab1:
-        if info:
-            col1, col2 = st.columns(2)
+        with tab1:
+            if info:
+                col1, col2 = st.columns(2)
             
-            with col1:
-                st.write("### 🏢 Company Details")
-                company_info = {
-                    "Company Name": info.get('longName', 'N/A'),
-                    "Sector": info.get('sector', 'N/A'),
-                    "Industry": info.get('industry', 'N/A'),
-                    "Country": info.get('country', 'N/A'),
-                    "Website": info.get('website', 'N/A'),
-                    "Employees": f"{info.get('fullTimeEmployees', 'N/A'):,}" if info.get('fullTimeEmployees') else 'N/A'
-                }
+                with col1:
+                    st.write("### 🏢 Company Details")
+                    company_info = {
+                        "Company Name": info.get('longName', 'N/A'),
+                        "Sector": info.get('sector', 'N/A'),
+                        "Industry": info.get('industry', 'N/A'),
+                        "Country": info.get('country', 'N/A'),
+                        "Website": info.get('website', 'N/A'),
+                        "Employees": f"{info.get('fullTimeEmployees', 'N/A'):,}" if info.get('fullTimeEmployees') else 'N/A'
+                    }
                 
-                for key, value in company_info.items():
-                    st.write(f"**{key}:** {value}")
+                    for key, value in company_info.items():
+                        st.write(f"**{key}:** {value}")
             
-            with col2:
-                st.write("### 📈 Financial Metrics")
-                financial_info = {
-                    "P/E Ratio": f"{info.get('trailingPE', 'N/A'):.2f}" if info.get('trailingPE') else 'N/A',
-                    "Forward P/E": f"{info.get('forwardPE', 'N/A'):.2f}" if info.get('forwardPE') else 'N/A',
-                    "PEG Ratio": f"{info.get('pegRatio', 'N/A'):.2f}" if info.get('pegRatio') else 'N/A',
-                    "Price to Book": f"{info.get('priceToBook', 'N/A'):.2f}" if info.get('priceToBook') else 'N/A',
-                    "Dividend Yield": f"{info.get('dividendYield', 0)*100:.2f}%" if info.get('dividendYield') else 'N/A',
-                    "Beta": f"{info.get('beta', 'N/A'):.2f}" if info.get('beta') else 'N/A',
-                    "52W High": f"${info.get('fiftyTwoWeekHigh', 'N/A'):.2f}" if info.get('fiftyTwoWeekHigh') else 'N/A',
-                    "52W Low": f"${info.get('fiftyTwoWeekLow', 'N/A'):.2f}" if info.get('fiftyTwoWeekLow') else 'N/A'
-                }
+                with col2:
+                    st.write("### 📈 Financial Metrics")
+                    financial_info = {
+                        "P/E Ratio": f"{info.get('trailingPE', 'N/A'):.2f}" if info.get('trailingPE') else 'N/A',
+                        "Forward P/E": f"{info.get('forwardPE', 'N/A'):.2f}" if info.get('forwardPE') else 'N/A',
+                        "PEG Ratio": f"{info.get('pegRatio', 'N/A'):.2f}" if info.get('pegRatio') else 'N/A',
+                        "Price to Book": f"{info.get('priceToBook', 'N/A'):.2f}" if info.get('priceToBook') else 'N/A',
+                        "Dividend Yield": f"{info.get('dividendYield', 0):.2f}%" if info.get('dividendYield') else 'N/A',
+                        "Beta": f"{info.get('beta', 'N/A'):.2f}" if info.get('beta') else 'N/A',
+                        "52W High": f"${info.get('fiftyTwoWeekHigh', 'N/A'):.2f}" if info.get('fiftyTwoWeekHigh') else 'N/A',
+                        "52W Low": f"${info.get('fiftyTwoWeekLow', 'N/A'):.2f}" if info.get('fiftyTwoWeekLow') else 'N/A'
+                    }
                 
-                for key, value in financial_info.items():
-                    st.write(f"**{key}:** {value}")
-        else:
-            st.warning("Company information not available")
+                    for key, value in financial_info.items():
+                        st.write(f"**{key}:** {value}")
+            else:
+                st.warning("Company information not available")
     
-    with tab2:
-        st.write("### 📊 Recent Price Data")
-        display_data = data[['Open', 'High', 'Low', 'Close', 'Volume']].tail(20)
-        display_data.index = display_data.index.strftime('%Y-%m-%d')
-        st.dataframe(display_data, use_container_width=True)
+        with tab2:
+            st.write("### 📊 Recent Price Data")
+            display_data = data[['Open', 'High', 'Low', 'Close', 'Volume']].tail(20)
+            display_data.index = display_data.index.strftime('%Y-%m-%d')
+            st.dataframe(display_data, width="stretch")
         
-        # Download option
-        csv = display_data.to_csv()
-        st.download_button(
-            label="📥 Download Data as CSV",
-            data=csv,
-            file_name=f'{symbol}_stock_data.csv',
-            mime='text/csv'
-        )
+            # Download option
+            csv = display_data.to_csv()
+            st.download_button(
+                label="📥 Download Data as CSV",
+                data=csv,
+                file_name=f'{symbol}_stock_data.csv',
+                mime='text/csv'
+            )
     
-    with tab3:
-        st.write("### 🔧 Technical Indicators (Last 10 Days)")
+        with tab3:
+            st.write("### 🔧 Technical Indicators (Last 10 Days)")
         
-        tech_columns = ['Close', 'SMA_20', 'SMA_50', 'RSI', 'MACD', 'MACD_signal', 'BB_upper', 'BB_lower', 'ATR']
-        available_columns = [col for col in tech_columns if col in data.columns]
+            tech_columns = ['Close', 'SMA_20', 'SMA_50', 'RSI', 'MACD', 'MACD_signal', 'BB_upper', 'BB_lower', 'ATR']
+            available_columns = [col for col in tech_columns if col in data.columns]
         
-        if available_columns:
-            tech_data = data[available_columns].tail(10)
-            tech_data.index = tech_data.index.strftime('%Y-%m-%d')
-            st.dataframe(tech_data.round(3), use_container_width=True)
-        else:
-            st.warning("Technical indicators not available")
+            if available_columns:
+                tech_data = data[available_columns].tail(10)
+                tech_data.index = tech_data.index.strftime('%Y-%m-%d')
+                st.dataframe(tech_data.round(3), width="stretch")
+            else:
+                st.warning("Technical indicators not available")
     
     # Footer
     st.markdown("---")
     st.markdown(
         """
         <div style='text-align: center; color: #666; padding: 20px;'>
-            <p>🚀 <strong>AI Stock Dashboard</strong> - Professional technical analysis with machine learning</p>
+            <p>🚀 <strong>Depot Dashboard</strong> - Dividends, coupons and depot growth and technical analysis</p>
             <p><em>⚠️ This is for educational purposes only. Not financial advice.</em></p>
-            <p>Built with ❤️ by <a href='https://erikthiart.com' target='_blank'>Erik Thiart</a></p>
-            <p>📊 Powered by <a href='https://plotly.com' target='_blank'>Plotly</a> and <a href='https://streamlit.io' target='_blank'>Streamlit</a></p>
+            <p>Based on AI Stock Dashboard by <a href='https://erikthiart.com' target='_blank'>Erik Thiart</a>, extended by W20Physik, 📊 Powered by <a href='https://plotly.com' target='_blank'>Plotly</a> and <a href='https://streamlit.io' target='_blank'>Streamlit</a></p>
         </div>
         """, 
         unsafe_allow_html=True

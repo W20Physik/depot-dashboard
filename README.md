@@ -1,17 +1,24 @@
-# 🚀 AI-Powered Stock Market Dashboard
+# 📈 Depot Dashboard including prediction with machine-learning (ML)
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28%2B-red)](https://streamlit.io/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/erikthiart/ai-stock-dashboard)](https://github.com/erikthiart/ai-stock-dashboard)
 
-> **Professional-grade stock analysis with machine learning predictions and real-time technical indicators**
+> **Depot overview, average change and professional-grade stock analysis with machine learning predictions and real-time technical indicators**
 
 A comprehensive, AI-powered stock market dashboard that combines advanced technical analysis, machine learning price predictions, and intelligent market insights in a beautiful, interactive interface.
 
 ![Main Dashboard](screenshots/main_dashboard.jpg)
 
 ## ✨ Features
+### 🤖 **Artificial Intelligence**
+- Current depot ***value is displayed including dividends/coupons*** payed.
+- Displays first five individual stocks with relative and absolute change.
+- ***Planned next features***: Depot change respects stocks starting from buy price instead of price at beginnging of viewed time range. Multiple buys and partial sells. (workaround: Manually modify depot.csv).
+- Streamlit UI to distinguish stock mode and this depot mode in better way than this tick box. Display history diagram of depot.
+- Bugfix for bonds (shows +106% instead 6% as no current price available)
+- Not available features are: Modification of depot csv file via UI.
 
 ### 🤖 **Artificial Intelligence**
 - **Machine Learning Price Prediction** - Random Forest model with 30+ technical features

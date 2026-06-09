@@ -1,0 +1,22 @@
+name	symbol	amount	price	action	date	datesell
+Orkla	ORKLF	1100	11.24	buy	2026-03-05
+Vestas	VWSYF	300	25.77	buy	2026-04-21
+Vestas	VWSYF	300	26.61	sell	2026-05-18
+Heidelberg	HLBZF	200	182.98	buy	2026-04-15
+Heidelberg	HLBZF	200	184.50	sell	2026-04-18
+Sanofi	SNYNF	200	80.98	buy	2026-04-24
+Sanofi	SNYNF	200	75.43	sell	2026-04-29 16:20
+USA2028	None	50000	0.97645	buy	2025-10-06
+Orkla	OKL.SG	200	0.4148	payout	2026-05-08
+Verbio	VBK.DE	400	36.78	buy	2026-05-13 13:36
+Verbio	VBK.DE	400	39.50	sell	2026-05-27 16:39
+Infineon	IFX.DE	200	66.48	buy	2026-05-14 14:51
+Infineon	IFX.DE	200	67.61	sell	2026-05-18 14:45
+France2056	None	25	37.212	payout	2026-05-25 11:00
+Commerzbank	CBK.DE	400	35.96	buy
+Commerzbank	CBK.DE	400	36.98	sell
+Exail	2G3.F	50	123.60	buy	2026-05-26 08:30
+Exail	2G3.F	50	134.90	sell	2026-05-26 08:30
+Scatec	66T.MU	800	9.84	buy	2026-05-26 09:30
+Leonardo	LDO.MI	250	54.37	buy	2026-06-01 10:30
+Nordex	NDX1.DE	350	40.47	0
