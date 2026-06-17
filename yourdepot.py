@@ -718,12 +718,12 @@ def main():
             st.plotly_chart(chart, width="stretch")
     
     # Performance Metrics
-    if show_performance and not show_depot::
+    if show_performance and not show_depot:
         st.subheader("📊 Performance Analysis")
         create_performance_metrics(data, symbol)
     
     # ML Prediction
-    if show_prediction and not show_depot::
+    if show_prediction and not show_depot:
         st.subheader("🔮 Machine Learning Price Prediction")
         
         col1, col2 = st.columns([1, 1])
@@ -781,7 +781,7 @@ def main():
                 st.plotly_chart(fig_importance, width="stretch")
     
     # AI Market Analysis
-    if show_analysis and not show_depot::
+    if show_analysis and not show_depot:
         st.subheader("🧠 AI-Powered Market Analysis")
         
         with st.spinner("🤖 Generating intelligent market insights..."):
@@ -800,7 +800,7 @@ def main():
                 st.info(insight)
     
     # Additional Analysis Tabs 
-    if show_company and not show_depot::
+    if show_company and not show_depot:
         st.markdown("---")
         tab1, tab2, tab3 = st.tabs(["📋 Company Info", "📊 Raw Data", "🔧 Technical Indicators"])
     

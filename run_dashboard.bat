@@ -1,1 +1,3 @@
-"streamlit run stock_dashboard.py" 
+cd C:\yourProgrammingFolder
+streamlit run yourdepot.py
+pause
