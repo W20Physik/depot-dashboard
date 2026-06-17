@@ -198,7 +198,7 @@ class Depot: #local copy in csv file
             self.changeRel = self.changeAbs/self.initial
         return t
 
-    def past_profit(self): # stocks already sold
+    def history_profit(self): # stocks already sold
         profit = 0.0
         nr=0
         pastStocks=[]

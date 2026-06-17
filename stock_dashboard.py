@@ -1,5 +1,8 @@
 import depot as dt
+#import Consors as con
 import yfinance as yf #Index(['Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits'], dtype='str')
+#import pytradegate as tg #Euro stocks by ISIN: https://github.com/cloasdata/pytradegate
+#import requests as rq
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -23,15 +26,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed" #expanded"
 )
 stock_dict = {
-            'ASML':'ASME.DE', 'Heidelberg Mat':'HEI.DE', 'Ver Bioenergie':'VBK.DE',
+            'ASML':'ASME.DE', 'Heidelberg Mat':'HEI.DE', 'Ver Bio':'VBK.DE',
             'Orkla': 'OKL.SG', 'Infineon':'IFX.DE', 'Sanofi':'SAN.PA',
-            'Umicore':'NVJP.DE',
+            'Umicore':'NVJP.DE', 'Leonardo':'LDO.MI',
             'Hello Fresh': 'HFG.F', 'Google': 'GOOGL',
             'Vestas':'VWSB.DE', 'Nordex': 'NDX1.DE', 'Siemens Energy':'ENR.F',
             'Amazon': 'AMZN', 'BYD China': 'BYDDF', 'Tesla': 'TSLA',
             'NVIDIA': 'NVDA', 'Meta': 'META', 'Netflix': 'NFLX',
             'AMD': 'AMD', 'Intel': 'INTC', 'Apple': 'AAPL',
-            'Ottobock': 'OBCK.DE', 'USA 2028 3.625%':'US91282CHE49.SG'
+            'Ottobock': 'OBCK.DE', 'USA 2028 3.63%':'US91282CHE49.SG'
             }
 stocks={} # inverse to search for stock symbol
 for key, value in stock_dict.items():
@@ -708,19 +711,19 @@ def main():
             #st.markdown("---")#with indent the line starts at text below indicators
 
     # Advanced Chart
-    if show_technical:
+    if show_technical and not show_depot:
         st.subheader("📈 Advanced Technical Analysis")
         with st.spinner("Creating advanced charts..."):
             chart = create_advanced_chart(data, symbol)
             st.plotly_chart(chart, width="stretch")
     
     # Performance Metrics
-    if show_performance:
+    if show_performance and not show_depot::
         st.subheader("📊 Performance Analysis")
         create_performance_metrics(data, symbol)
     
     # ML Prediction
-    if show_prediction:
+    if show_prediction and not show_depot::
         st.subheader("🔮 Machine Learning Price Prediction")
         
         col1, col2 = st.columns([1, 1])
@@ -778,7 +781,7 @@ def main():
                 st.plotly_chart(fig_importance, width="stretch")
     
     # AI Market Analysis
-    if show_analysis:
+    if show_analysis and not show_depot::
         st.subheader("🧠 AI-Powered Market Analysis")
         
         with st.spinner("🤖 Generating intelligent market insights..."):
@@ -797,7 +800,7 @@ def main():
                 st.info(insight)
     
     # Additional Analysis Tabs 
-    if show_company:
+    if show_company and not show_depot::
         st.markdown("---")
         tab1, tab2, tab3 = st.tabs(["📋 Company Info", "📊 Raw Data", "🔧 Technical Indicators"])
     

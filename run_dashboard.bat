@@ -1,1 +1,1 @@
-"streamlit run dash.py" 
+"streamlit run stock_dashboard.py" 
