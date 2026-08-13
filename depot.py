@@ -19,20 +19,22 @@ class Stock:
     initial: float # average price (incl. fees) from csv file
     current: float # online price
     payout: float
-    currency = "€"
-    changeRel= 0.0
-    changeAbs: float
-    sRel = "normal"
-    age = 0.05 #in days
-    isSold = False
-    isSingle = True
-    len = 0
-    orders = []
+    changeAbs: float # online change absolute, derived from current in fetch()
+    newPrice: float = 0.0 # last fetched price; mirrors current after fetch()
+    changeRel: float = 0.0 # relative change, derived from current in fetch()
+    sRel: str = "normal" # sentiment bucket of changeRel
+    currency = "€" # class constant
+    age = 0.05 #in days, class constant
+    isSold = False # class constant
+    isSingle = True # class constant
+    len = 0 # class constant (overwritten by fetch())
+    orders = [] # class constant
     def fetch(self, period="1mo"):
         if (self.symbol == "None") or (self.symbol == "const"):
             self.changeAbs  = self.amount * (self.payout)
             self.changeRel  = self.changeAbs / self.initial
             self.current    = self.initial
+            self.newPrice   = self.current
             self.len = 0
             return None
         try: #todo:handle  Yahoo error = "No data found, symbol may be delisted
@@ -40,9 +42,11 @@ class Stock:
             data = stock.history(period=period)
             self.data = data            # todo: if today is not in history file.
             self.current =  data['Close'].iloc[-1]# side do: update interval
+            self.newPrice = self.current
             self.len = len(data)
         except Exception as e:
             self.current = self.initial # todo: last known value.
+            self.newPrice = self.current
             print(f"Error fetching data: {str(e)}")
         delta = self.payout + self.current - self.initial
         self.changeAbs  = self.amount * (delta)
